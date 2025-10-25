@@ -5,12 +5,19 @@ from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.memory import MemoryStorage
 from keyboard import get_main_keyboard, get_vote_keyboard, votes
 
 
 load_dotenv()
+storage = MemoryStorage()
 bot = Bot(token=os.getenv('BOT_TOKEN'))
-dp = Dispatcher()
+dp = Dispatcher(storage=storage)
+
+class NewTaksStates(StatesGroup):
+    task_title = State()
 
 @dp.message(Command('start'))
 async def start_command(message: Message):
@@ -38,9 +45,22 @@ async def help_message(message: Message):
                 '''
     await message.answer(help_text)
 
-@dp.message(F.text == "🕑Время")
-async def time_request(message: Message):
-    await message.answer(datetime.datetime.now().strftime("%H:%M:%S"))
+@dp.message(F.text == "📝Добавить задачу")
+async def add_new_task(message: Message, state: FSMContext):
+    await message.answer("✏️Введите задачу:")
+    await state.set_state(NewTaksStates.task_title)
+
+@dp.message(NewTaksStates.task_title, F.text)
+async def set_task_title(message: Message, state: FSMContext):
+    title = message.text.strip()
+    await state.update_data(title=title)
+    user_data = await state.get_data()
+    await message.answer(
+        "📝Добавлена задача:\n\n"
+        f" - {user_data['title']}",
+        parse_mode="Markdown"
+    )
+    await state.clear()
 
 @dp.message(F.text == "💭Обратная связь")
 async def say_command(message: Message):

@@ -6,7 +6,7 @@ votes = {"like": 0, "dislike": 0, "love": 0}
 
 def get_main_keyboard():
     builder = ReplyKeyboardBuilder()
-    builder.button(text="🕑Время")
+    builder.button(text="📝Добавить задачу")
     builder.button(text="ℹ️Помощь")
     builder.button(text="💭Обратная связь")
     builder.adjust(2, 1) # Расположения кнопок в ряду
