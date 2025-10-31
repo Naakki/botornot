@@ -7,9 +7,10 @@ votes = {"like": 0, "dislike": 0, "love": 0}
 def get_main_keyboard():
     builder = ReplyKeyboardBuilder()
     builder.button(text="📝Добавить задачу")
+    builder.button(text="📄Все задачи")
     builder.button(text="ℹ️Помощь")
     builder.button(text="💭Обратная связь")
-    builder.adjust(2, 1) # Расположения кнопок в ряду
+    builder.adjust(2, 2) # Расположения кнопок в ряду
 
     return builder.as_markup(
         resize_keyboard=True,

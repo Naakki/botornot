@@ -14,7 +14,7 @@ class NotesDatabase:
                 comment TEXT,
                 time TEXT NOT NULL,
                 category TEXT
-            )
+                )
             ''')
             await db.commit()
     
@@ -37,7 +37,7 @@ class NotesDatabase:
         """Получение всех заметок"""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            cursor = await db.execute('SELECT * FROM notes ORDER BY time DESC')
+            cursor = await db.execute('SELECT * FROM notes ORDER BY time')
             notes = await cursor.fetchall()
             return [dict(note) for note in notes]
     

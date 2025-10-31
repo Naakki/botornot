@@ -22,6 +22,17 @@ class NewTaksStates(StatesGroup):
     task_comment = State()
     task_category = State()
 
+def escape_markdown(text: str) -> str:
+    """Экранирование специальных символов для MarkdownV2"""
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return ''.join(f'\\{char}' if char in escape_chars else char for char in text)
+
+def format_quote(text: str) -> str:
+    """Форматирует многострочный текст в цитату Markdown"""
+    lines = text.split('\n')
+    quoted_lines = [f"> {line}" for line in lines]
+    return '\n'.join(quoted_lines)
+
 @dp.message(Command('start'))
 async def start_command(message: Message):
     user_name = message.from_user.first_name
@@ -49,25 +60,24 @@ async def help_message(message: Message):
                 '''
     await message.answer(help_text)
 
+                                                        # Хендлеры для добавления задач Начало
 @dp.message(F.text == "📝Добавить задачу")
 async def add_new_task(message: Message, state: FSMContext):
-    await message.answer("✏️Введите задачу:")
+    await message.answer("✏️Введите заголовок задачи:")
     await state.set_state(NewTaksStates.task_title)
 
 @dp.message(NewTaksStates.task_title, F.text)
 async def set_task_title(message: Message, state: FSMContext):
     title = message.text.strip()
     await state.update_data(title=title)
-    # user_data = await state.get_data()
     await message.answer("✏️Введите комментарий:")
     await state.set_state(NewTaksStates.task_comment)
-    # await state.clear()
 
 @dp.message(NewTaksStates.task_comment, F.text)
 async def set_task_comment(message: Message, state: FSMContext):
     comment = message.text.strip()
     await state.update_data(comment=comment)
-    await message.answer("✏️Пока введите категорию")
+    await message.answer("✏️Введите категорию:")
     await state.set_state(NewTaksStates.task_category)
 
 @dp.message(NewTaksStates.task_category, F.text)
@@ -78,27 +88,29 @@ async def set_task_comment(message: Message, state: FSMContext):
 
     try:
         await notesdb.add_note(user_data)
-        await message.answer(f'''
-Добавлена новая задача:
-{user_data['title']} ({user_data['category']})
-
-    {user_data['comment']}
-''')
+        await message.answer(f"Добавлена новая задача: \n\n"
+                             f"*{escape_markdown(user_data['title'])}*\n"
+                             f"{format_quote(escape_markdown(user_data['comment']))}", 
+                             parse_mode="MarkdownV2")
     except Exception as e:
         await message.answer(f"Что-то пошло не так: {e}")
 
     await state.clear()
+                                                        # Хендлеры для добавления задач Конец
 
-@dp.message(F.text == "Мои задачи")
+@dp.message(F.text == "📄Все задачи")
 async def get_all_notes(message: Message):
     notes = await notesdb.get_all_notes()
-    
-    for note in notes:
-        await message.answer(f'''
-{note['title']} ({note['category']})
+    result = []
 
-    {note['comment']}
-''')
+    for note in notes:
+        safe_title = escape_markdown(note['title'])
+        safe_comment = format_quote(escape_markdown(note['comment']))
+
+        result.append(f"/task\\_{note['id']} *{safe_title}*\n"
+                      f"{safe_comment}")
+        
+    await message.answer('\n\n'.join(result), parse_mode="MarkdownV2")
 
 @dp.message(F.text == "💭Обратная связь")
 async def say_command(message: Message):
