@@ -10,7 +10,8 @@ def get_main_keyboard():
     builder.button(text="📄Все задачи")
     builder.button(text="ℹ️Помощь")
     builder.button(text="💭Обратная связь")
-    builder.adjust(2, 2) # Расположения кнопок в ряду
+    builder.button(text="🔧TODO list")
+    builder.adjust(2, 2, 1) # Расположения кнопок в ряду
 
     return builder.as_markup(
         resize_keyboard=True,
@@ -23,4 +24,13 @@ def get_vote_keyboard():
     builder.button(text=f"👎{votes['dislike']}", callback_data="vote_dislike")
     builder.button(text=f"❤️{votes['love']}", callback_data="vote_love")
     
+    return builder.as_markup()
+
+def get_crud_task_key():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📝Редактировать", callback_data="edit_task")
+    builder.button(text="✅Завершить", callback_data="complete_task")
+    builder.button(text="🔙Вернуться", callback_data="go_back_to_task_list")
+    builder.adjust(2, 1)
+
     return builder.as_markup()

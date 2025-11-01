@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
-from keyboard import get_main_keyboard, get_vote_keyboard, votes
+from keyboard import get_main_keyboard, get_vote_keyboard, get_crud_task_key, votes
 from service import NotesDatabase
 
 
@@ -21,6 +21,9 @@ class NewTaksStates(StatesGroup):
     task_title = State()
     task_comment = State()
     task_category = State()
+
+class CRUDTaskStates(StatesGroup):
+    operation = State()
 
 def escape_markdown(text: str) -> str:
     """Экранирование специальных символов для MarkdownV2"""
@@ -48,6 +51,17 @@ async def start_command(message: Message):
 /say - обратная связь
 ''',
 reply_markup=get_main_keyboard())
+    
+@dp.message(F.text == "🔧TODO list")
+async def todolist(message: Message):
+    todo_list = '''
+1. Веб-сервис (веб-апп) для бота
+2. Пагинация в списке задач
+3. CRUD задач
+4. Напоминалка
+5. Настройки над задачами и уделомлениями
+'''
+    await message.answer(todo_list)
     
 @dp.message(F.text == "ℹ️Помощь")
 async def help_message(message: Message):
@@ -103,19 +117,85 @@ async def get_all_notes(message: Message):
     notes = await notesdb.get_all_notes()
     result = []
 
-    for note in notes:
-        safe_title = escape_markdown(note['title'])
-        safe_comment = format_quote(escape_markdown(note['comment']))
+    if not notes:
+        await message.answer("✅Все задачи выполнены!")
+    else:
+        for note in notes:
+            safe_title = escape_markdown(note['title'])
+            safe_comment = format_quote(escape_markdown(note['comment']))
 
-        result.append(f"/task\\_{note['id']} *{safe_title}*\n"
-                      f"{safe_comment}")
+            result.append(f"/task\\_{note['id']} *{safe_title}*\n"
+                        f"{safe_comment}")
+            
+        await message.answer('\n\n'.join(result), parse_mode="MarkdownV2")
+
+                                                        # Хендлеры для работы с задачами
+@dp.message(F.text.startswith("/task_"))
+async def get_task(message: Message, state: FSMContext):
+    id = message.text.split('_')[1]
+
+    if id.isdigit():
+        task = await notesdb.get_note_by_id(id)
+
+        if task:
+            await state.update_data(id=id)
+            await state.set_state(CRUDTaskStates.operation)
+            await message.answer(f"/task\\_{task['id']} *{task['title']}*\n"
+                                f"{format_quote(task['comment'])}",
+                                parse_mode="MarkdownV2",
+                                reply_markup=get_crud_task_key())
+        else:
+            await message.answer("❌Нет такой задачи")
+    else:
+        await message.delete()
+
+@dp.callback_query(CRUDTaskStates.operation, F.data == "complete_task")
+async def complete_task(callback: CallbackQuery, state: FSMContext):
+    id = await state.get_data()
+    await notesdb.delete_note(id['id'])
+
+    notes = await notesdb.get_all_notes()
+    result = []
+
+    if not notes:
+        await callback.message.edit_text("✅Все задачи выполнены!")
+        await callback.answer()
+    else:
+        for note in notes:
+            safe_title = escape_markdown(note['title'])
+            safe_comment = format_quote(escape_markdown(note['comment']))
+
+            result.append(f"/task\\_{note['id']} *{safe_title}*\n"
+                        f"{safe_comment}")
         
-    await message.answer('\n\n'.join(result), parse_mode="MarkdownV2")
+        await callback.message.edit_text('\n\n'.join(result), parse_mode="MarkdownV2")
+        await callback.answer("Задача выполнена ✅", show_alert=False)
+    
+    await state.clear()
+
+@dp.callback_query(CRUDTaskStates.operation, F.data == "go_back_to_task_list")
+async def go_back(callback: CallbackQuery, state: FSMContext):
+    notes = await notesdb.get_all_notes()
+    result = []
+
+    if not notes:
+        await callback.message.edit_text("✅Все задачи выполнены!")
+    else:
+        for note in notes:
+            safe_title = escape_markdown(note['title'])
+            safe_comment = format_quote(escape_markdown(note['comment']))
+
+            result.append(f"/task\\_{note['id']} *{safe_title}*\n"
+                          f"{safe_comment}")
+        
+        await callback.message.edit_text('\n\n'.join(result), parse_mode="MarkdownV2")
+    await callback.answer()
+
+                                                    # Хендлеры для работы с задачами Конец        
 
 @dp.message(F.text == "💭Обратная связь")
 async def say_command(message: Message):
-    await message.answer('Обратная связь:',
-                         reply_markup=get_vote_keyboard())
+    await message.answer('Обратная связь:', reply_markup=get_vote_keyboard())
 
 @dp.message(F.photo)
 async def photo_messages(message: Message):
